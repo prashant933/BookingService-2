@@ -1,7 +1,10 @@
 package com.prashant.service;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
+import com.prashant.dao.IAuthDao;
+import com.prashant.model.BookingEmail;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
@@ -22,12 +25,14 @@ import com.prashant.response.ResponseDetails;
 
 @Service
 public class BookingServiceImpl implements IBookingService {
-	
 	@Autowired
 	private IBookingDao dao;
-
+	@Autowired
+	private IAuthDao authDao;
 	@Autowired
 	private IAuthService authService;
+	@Autowired
+	private IEmailPublisher emailPublisher;
 
 	private final String FLIGHT_SERVICE_REQUEST_URL = "http://localhost:3001/flightService/api/flights/";
 
@@ -68,6 +73,14 @@ public class BookingServiceImpl implements IBookingService {
 		.block();
 		
 		dao.save(booking);
+		// Add entry into Rabbit MQ for successful booking
+		BookingEmail email = new BookingEmail();
+		email.setSubject("Booking confirmation for flight id: "+flightId);
+		email.setBody("Flight booked successfully. Your total cost is: "
+				+totalCost);
+		email.setNotificationTime(Timestamp.valueOf(LocalDateTime.now()));
+		email.setRecipientEmail(authDao.findById(userId).get().getEmail());
+		publishMessageToQueue(email);
 		
 		ResponseDetails response = new ResponseDetails();
 		response.setMessage("Flight booked successfully. User id: "+userId +" Total Cost is: "+totalCost);
@@ -114,5 +127,9 @@ public class BookingServiceImpl implements IBookingService {
 		Jws<Claims> resp = authService.validateToken(token);
 		Integer userId = resp.getBody().get("id", Integer.class);
 		return userId;
+	}
+
+	private void publishMessageToQueue(BookingEmail email) {
+		emailPublisher.publishMessage(email);
 	}
 }
