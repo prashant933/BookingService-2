@@ -2,6 +2,10 @@ package com.prashant.service;
 
 import java.time.LocalDateTime;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -10,7 +14,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.prashant.dao.IBookingDao;
 import com.prashant.exception.BadRequestException;
 import com.prashant.exception.NotFoundException;
-import com.prashant.exception.SeatsNotAvailableException;
 import com.prashant.model.Booking;
 import com.prashant.model.Booking.Status;
 import com.prashant.request.RequestObject;
@@ -22,25 +25,24 @@ public class BookingServiceImpl implements IBookingService {
 	
 	@Autowired
 	private IBookingDao dao;
+
+	@Autowired
+	private IAuthService authService;
+
 	private final String FLIGHT_SERVICE_REQUEST_URL = "http://localhost:3001/flightService/api/flights/";
 
 	@Override
-	public ResponseDetails bookFlight(RequestObject request) {
+	public ResponseDetails bookFlight(RequestObject request, String authorization) {
 		validateInputs(request);
+		Integer userId = validateAuthHeader(authorization);
 		
 		Integer flightId = request.getFlightId();
 		Integer totalSeats = request.getTotalSeats();
-		Integer userId = 1;
 		
 		FlightServiceResponse flightServiceResponse = getFlight(flightId);
 		
 		if(flightServiceResponse == null) {
 			throw new NotFoundException(String.format("Flight with given ID: %d does not exists", flightId));
-		}
-		
-		if(totalSeats > flightServiceResponse.getTotalSeats()) {
-			throw new SeatsNotAvailableException(String.format("Flight with ID: %d does not have %d number of"
-					+ " available seats", flightId, totalSeats));
 		}
 		
 		Double totalCost = flightServiceResponse.getPrice() * totalSeats;
@@ -68,8 +70,8 @@ public class BookingServiceImpl implements IBookingService {
 		dao.save(booking);
 		
 		ResponseDetails response = new ResponseDetails();
-		response.setMessage("Flight booked successfully. Total Cost is: "+totalCost);
-		response.setSuccess(true);;
+		response.setMessage("Flight booked successfully. User id: "+userId +" Total Cost is: "+totalCost);
+		response.setSuccess(true);
 		return response;
 	}
 	
@@ -101,4 +103,16 @@ public class BookingServiceImpl implements IBookingService {
 		return flightServiceResponse;
 	}
 
+	private Integer validateAuthHeader(String authorization) {
+		if(!authorization.startsWith("Bearer: ")) {
+			throw new BadRequestException("Invalid Authorization header provided");
+		}
+		String token = authorization.substring(8);
+		if(token.length() == 0) {
+			throw new BadRequestException("Please provide valid token in header");
+		}
+		Jws<Claims> resp = authService.validateToken(token);
+		Integer userId = resp.getBody().get("id", Integer.class);
+		return userId;
+	}
 }

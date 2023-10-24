@@ -6,5 +6,5 @@ import com.prashant.request.RequestObject;
 import com.prashant.response.ResponseDetails;
 
 public interface IBookingController {
-	ResponseEntity<ResponseDetails> bookFlight(RequestObject request);
+	ResponseEntity<ResponseDetails> bookFlight(RequestObject request, String authorization);
 }

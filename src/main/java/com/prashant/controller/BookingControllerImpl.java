@@ -3,10 +3,7 @@ package com.prashant.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.prashant.request.RequestObject;
 import com.prashant.response.ResponseDetails;
@@ -21,8 +18,9 @@ public class BookingControllerImpl implements IBookingController {
 
 	@Override
 	@PostMapping("/book")
-	public ResponseEntity<ResponseDetails> bookFlight(@RequestBody RequestObject request) {
-		ResponseDetails response = service.bookFlight(request);
+	public ResponseEntity<ResponseDetails> bookFlight(@RequestBody RequestObject request,
+													  @RequestHeader("Authorization") String authorization) {
+		ResponseDetails response = service.bookFlight(request, authorization);
 		return new ResponseEntity<ResponseDetails>(response, HttpStatus.CREATED);
 	}
 
